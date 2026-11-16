@@ -1,0 +1,15 @@
+node_modules/
+dist/
+dist-electron/
+release/
+.env*
+.DS_Store
+tmp/pino-desktop.png
+tmp/pino-connections.png
+tmp/pino-api.png
+
+tmp/
+
+*.enc
+
+*.enc.tmp
