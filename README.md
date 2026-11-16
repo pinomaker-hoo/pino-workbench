@@ -1,112 +1,131 @@
+<p align="center"><img src="assets/icon.png" width="120" alt="Pino Workbench pine logo"></p>
+
 # Pino Workbench
 
-Windows와 macOS를 위한 로컬 개발 워크스페이스입니다. 사용자가 설정한 MCP 서버에서 Jira·Confluence 맥락을 가져와 로컬 개발에 사용할 Markdown을 만듭니다. Pino 계정이나 별도 클라우드 백엔드는 없습니다.
+**웹 기술 없이 만든 Go 데스크톱 작업 공간.** Windows와 macOS를 대상으로 하며, UI는 Fyne 위젯으로 직접 그립니다. Electron, React, Node.js, HTML/CSS, WebView를 사용하지 않습니다. 별도의 Pino 서버나 계정도 필요 없습니다.
 
-[GitHub](https://github.com/pinomaker-hoo/pino-workbench) · MIT License · Early prototype
+사용자가 설정한 MCP 서버에서 Jira·Confluence 맥락을 모으고, API 시나리오를 로컬에서 실행·검증·공유합니다. MIT 라이선스의 초기 프로토타입입니다.
 
 ## 실행
 
-Node.js 22 이상과 Git이 필요합니다.
+Go 1.26.1 이상과 플랫폼 C 개발 도구가 필요합니다.
+
+- **macOS:** Xcode Command Line Tools (`xcode-select --install`).
+- **Windows:** MSYS2/MinGW-w64 GCC를 설치하고 `gcc`가 PATH에서 실행되도록 설정하세요.
+- Git 저장소 기능에는 Git이 필요합니다. 연결할 MCP 서버와 AI CLI는 사용자가 별도로 설치·인증합니다.
 
 ```sh
-npm install
-npm run dev
+go mod download
+go run ./cmd/pino
 ```
 
 ```sh
-npm test
-npm run build
-npm run test:desktop
-npm run package
+go build -trimpath -o build/ ./cmd/pino
+go vet ./...
+go test ./...
+go test -race ./internal/model ./internal/vault ./internal/runner ./internal/connectors
 ```
 
-`npm run package`는 현재 OS용 설치 파일을 `release/`에 생성합니다. Windows NSIS는 Windows에서, macOS DMG는 macOS에서 빌드하세요. 배포 서명·notarization·자동 업데이트는 아직 설정하지 않았습니다.
+Windows GUI 배포 실행 파일은 콘솔 창 없이 빌드할 수 있습니다.
 
-## 사용자별 연결 설정
-
-**서비스 연결**에서 Jira, Confluence, GitHub, Notion, Google, Claude, Codex를 각각 설정합니다. 이 채팅이나 다른 앱의 인증을 공유하거나 가져오지 않습니다.
-
-### 서비스 MCP
-
-1. **stdio**는 로컬 실행 파일과 JSON 명령 인자 배열을 지정합니다. **Streamable HTTP**는 MCP 주소를 지정합니다. HTTPS 및 localhost HTTP를 지원합니다.
-2. 인증 헤더 또는 환경 변수는 별도 JSON 입력란에 입력합니다. HTTP 예: `{"Authorization":"Bearer YOUR_TOKEN"}`. stdio는 해당 MCP 서버에서 요구하는 환경 변수 이름을 사용하세요.
-3. **로컬에 저장**합니다. 저장만으로 프로세스 실행이나 네트워크 연결이 발생하지 않습니다.
-4. **연결 테스트**를 누르면 설정한 프로세스를 실행하거나 서버에 접속하여 도구 목록과 입력 스키마를 조회합니다. 각 요청 후 연결/프로세스를 닫습니다.
-5. Jira·Confluence는 읽기 전용 검색 도구 이름, 인자 템플릿, 응답 배열 경로를 설정합니다. 이후 업무 화면의 검색 버튼으로 호출합니다.
-
-예를 들어 서버가 `jira_search` 도구에 `jql`을 받으며 `{"issues":[...]}`를 반환한다면:
-
-```json
-{
-  "tool": "jira_search",
-  "arguments": { "jql": "{{query}}" },
-  "resultPath": "issues"
-}
+```powershell
+go build -trimpath -ldflags="-H=windowsgui" -o build/pino.exe ./cmd/pino
 ```
 
-`{{query}}`는 UI의 검색어/JQL로 치환합니다. 서버별 이름·필수 인자·응답 형식은 다르므로 도구 목록의 스키마를 확인하세요. 배열 경로는 `data.issues`처럼 점으로 구분하며 루트 배열은 빈칸입니다. `structuredContent` 또는 JSON 텍스트 응답을 지원하고 최대 50개를 표시합니다. 임의 자연어 결과는 자동 해석하지 않습니다.
+macOS 앱 번들:
 
-Jira는 `key`, `title` 또는 `summary`(혹은 `fields.summary`), 상태·담당자·설명 등의 일반적인 형식을 지원합니다. Confluence는 `id`, `title`, `text` 또는 `content` 등을 읽습니다. 결과의 `url`이 없으면 설정한 원문 기본 주소로 링크를 만듭니다. 검색 결과에 본문이 없으면 별도 문서 상세 조회는 아직 하지 않습니다. 문서 HTML은 실행하지 않고 텍스트로 표시합니다.
+```sh
+go build -trimpath -o build/pino ./cmd/pino
+go run fyne.io/tools/cmd/fyne@v1.7.4 package --os darwin --exe build/pino --name "Pino Workbench" --app-id dev.pino.workbench --app-version 0.2.0 --icon assets/icon.png
+```
 
-GitHub·Notion·Google은 현재 연결 저장과 MCP 도구 조회까지 제공합니다. 업무 화면의 데이터 연동은 후속 구현입니다. HTTP 브라우저 OAuth, 기존 SSE, 인증 자동 갱신은 아직 지원하지 않습니다. 직접 발급받은 헤더 토큰 또는 사용자 인증을 처리하는 로컬 MCP 서버를 사용하세요.
+배포 서명·Apple notarization·자동 업데이트는 아직 구성하지 않았습니다. Windows는 Windows 빌드 환경에서 검증해야 합니다. CI에 macOS/Windows 네이티브 빌드와 테스트를 설정했습니다. Fyne 빌드는 CGO 및 플랫폼 라이브러리를 사용하므로 일반 Go CLI처럼 타깃 환경 변수만 바꿔 크로스 컴파일할 수 있는 것은 아닙니다.
 
-### AI 설정
+## 업무 맥락
 
-Claude·Codex는 로컬 CLI 명령, 인자, 환경 변수를 저장합니다. 로그인은 사용자가 설치한 해당 CLI에서 직접 진행하며 자격 증명은 CLI가 로컬에서 관리합니다. Pino는 그 로그인 정보를 복사하지 않습니다. 현재는 설정 저장까지 구현되어 있고 AI 실행·내장 터미널은 아직 없습니다.
+- 처음 실행하면 명확히 표시된 데모 이슈와 문서가 나옵니다.
+- **서비스 연결**에서 Jira와 Confluence의 MCP 설정을 저장합니다.
+- **업무 공간**에서 Jira JQL, Confluence 검색어로 자료를 가져옵니다. 최대 50개를 표시합니다.
+- 이슈와 참고 문서를 선택하여 원문 링크·내보낸 시각을 포함한 Markdown을 저장합니다.
+- 로컬 Git 저장소를 선택하면 실제 Git 루트를 검증하고 경로를 로컬 설정에 저장합니다.
 
-### 로컬 저장과 삭제
+외부 문서는 텍스트로 표시하며 명령으로 실행하지 않습니다. 검색 결과에 전체 본문이 없으면 별도 상세 조회는 아직 하지 않습니다.
 
-- 설정 전체는 Electron `app.getPath('userData')/connections.enc`에 OS `safeStorage`로 암호화하여 저장합니다. 실제 경로를 설정 화면에 표시합니다.
-- 일반 설정과 비밀 값을 함께 암호화합니다. 저장된 비밀 값은 UI로 반환하지 않고 키 이름만 표시합니다.
-- 인증 입력란의 빈칸은 기존 값 유지, `{}`는 전체 삭제, 새 객체는 전체 교체입니다.
-- 서버 주소·실행 명령·인자를 변경하면 기존 비밀 값을 자동 전달하지 않고 재입력을 요구합니다.
-- **이 서비스 설정 및 인증 삭제**는 해당 서비스의 Pino 설정과 비밀 값을 삭제합니다. 외부 서비스의 토큰 폐기나 CLI 로그아웃을 대신하지 않습니다.
-- 쓰기는 순차 처리하며 임시 파일 후 교체합니다. 복호화 실패 시 기존 파일을 덮어쓰지 않습니다.
-- 이전 프로토타입의 `atlassian.enc`는 새 연결 설정을 처음 저장할 때 삭제합니다. 기존 REST 인증은 더 이상 사용하지 않습니다.
-- 작업 맥락은 사용자가 선택한 로컬 Markdown 파일에 저장됩니다. 이 내보낸 파일은 평문입니다.
+## 서비스별 MCP 연결
 
-원격 MCP/AI 서비스를 사용하면 해당 기능에 필요한 데이터는 사용자가 지정한 서비스로 전달됩니다. “로컬 앱”은 모든 외부 서비스가 오프라인으로 동작한다는 뜻은 아닙니다.
+지원 프로필: Jira, Confluence, GitHub, Notion, Google, Claude, Codex.
 
-## API 시나리오 실행 및 파일 공유
+1. **stdio:** 실행 파일과 JSON 명령 인자 배열을 설정합니다. 환경 변수/토큰은 인증 입력란에 넣습니다.
+2. **http:** Streamable HTTP MCP 주소를 설정합니다. 원격 주소는 HTTPS, localhost는 HTTP도 허용합니다. 인증 입력란에 `{"Authorization":"Bearer ..."}` 등의 헤더를 지정합니다.
+3. 인증 입력란의 **빈칸은 기존 값 유지**, **`{}`는 삭제**, 새 객체는 전체 교체입니다. 저장된 값은 다시 입력란에 표시하지 않고 키 이름만 보여줍니다.
+4. **로컬에 저장**만 누르면 명령을 실행하거나 네트워크에 접속하지 않습니다.
+5. **MCP 연결 테스트**는 저장한 설정으로 서버에 접속하여 도구 이름과 입력 스키마를 조회합니다. 명령·주소 변경 시 기존 인증 값을 자동 전달하지 않고 재입력을 요구합니다.
+6. Jira·Confluence는 읽기 전용 검색 도구, 인자, 결과 배열 경로를 지정합니다.
 
-왼쪽 **API 시나리오**에서 실제 HTTP 요청 흐름을 작성합니다. **현재 이슈** 버튼으로 선택한 Jira 이슈 키를 연결할 수 있습니다. 이슈 키는 공유 파일에도 포함되며 Jira 자체를 수정하지 않습니다.
+예: `search` 도구가 `jql`을 받으며 `{"issues":[...]}`를 반환한다면 도구 인자는 `{"jql":"{{query}}"}`, 배열 경로는 `issues`입니다. `data.results`처럼 중첩 경로를 사용할 수 있고 루트 배열은 빈 경로를 사용합니다. 서버마다 스키마가 다르므로 제공되는 도구 목록을 확인하세요.
 
-1. 시나리오 이름과 요청 이름, 메서드, URL, 헤더(JSON), 본문을 입력합니다.
-2. **이 컴퓨터의 변수**에 `{"baseUrl":"http://localhost:3000","password":"..."}` 같은 로컬 값을 저장합니다. `{{baseUrl}}`, `{{password}}`로 참조합니다. 빈 입력은 기존 값 유지, `{}`는 전체 삭제입니다.
-3. **응답 → 변수**에 `{"token":"token","userId":"user.id"}`를 설정하면 JSON 응답에서 값을 추출해 다음 요청에서 `{{token}}`, `{{userId}}`로 사용합니다.
-4. 예상 상태 코드와 선택적인 JSON 검증 `[{"path":"ok","equals":true}]`를 지정합니다. JSON 경로는 `data.id`, `users.0.id` 형식입니다.
-5. **전체 실행**은 현재 편집 내용을 저장하고 실제 서버에 순서대로 요청합니다. 첫 오류/검증 실패에서 중단합니다. 실행 중단은 이미 처리된 서버 변경을 되돌리지 않습니다.
-6. **공유 파일**로 Pino JSON을 저장해 동료에게 전달하거나 Git 저장소에 추가할 수 있습니다. **가져오기**는 새로운 ID와 빈 로컬 변수로 저장하며 요청을 자동 실행하지 않습니다. 동료는 자신의 환경·인증 변수를 입력한 뒤 실행합니다.
+Jira는 `key`, `summary/title` 또는 `fields.summary`, 설명·상태·담당자 등의 일반적인 형식을 지원합니다. Confluence는 `id`, `title`, `text/content` 등을 지원합니다. 결과가 URL을 제공하지 않으면 원문 기본 주소로 링크를 만듭니다. 자연어 결과를 임의로 해석하지 않고 JSON 결과를 요구합니다.
 
-공유 파일에는 요청 정의(직접 입력한 URL·헤더·본문·예상 값 포함)와 이슈 키만 들어갑니다. 로컬 변수, 추출한 런타임 변수, 실행 결과는 제외합니다. 따라서 인증 값은 요청 정의에 직접 쓰지 않고 **로컬 변수**로 관리하세요. 공유 전에 요청 정의에 포함된 데이터도 확인해야 합니다. 실행 결과에서 알려진 로컬/추출 변수의 문자열 값은 가리지만 응답의 모든 민감한 데이터를 자동 판별하는 기능은 아닙니다.
+GitHub·Notion·Google은 현재 MCP 설정 저장·도구 조회까지 지원합니다. AI 프로필은 실행 경로·인자·환경 변수 저장까지 지원합니다. **Claude·Codex 로그인은 설치된 CLI에서 사용자가 직접 진행**하며 Pino는 다른 앱의 로그인 정보를 복사하지 않습니다. AI 실행·내장 터미널, 브라우저 OAuth, 자동 토큰 갱신, 기존 SSE 서버는 아직 지원하지 않습니다.
 
-시나리오와 로컬 변수는 `userData/api-scenarios.enc`에 OS 암호화로 저장합니다. 실행 결과는 화면에서만 유지합니다. HTTP/HTTPS, GET/POST/PUT/PATCH/DELETE/HEAD를 지원하고 요청당 15초·응답 1MB·시나리오당 30개 요청으로 제한합니다. 리디렉션은 자동으로 따라가지 않습니다. 저장과 가져오기는 네트워크 요청을 하지 않습니다.
+## API 시나리오
 
-현재 공유는 **Pino JSON 파일 방식**입니다. Postman Collection 가져오기/내보내기, 환경별 프로필, 스크립트, multipart 파일 업로드, 쿠키 세션, 클라이언트 인증서, 팀 실시간 동기화는 지원하지 않습니다. CI 자동 실행용 CLI 및 실행 결과 공유도 후속 범위입니다.
+**API 시나리오**에서 요청을 만들고 위·아래 버튼으로 순서를 바꿉니다. **현재 이슈 연결**로 Jira 이슈 키를 연결할 수 있습니다. Jira 자체를 수정하지는 않습니다.
 
-## 기술 구조
+- HTTP 메서드·URL·헤더·본문 입력
+- 로컬 변수 `{{baseUrl}}`, `{{token}}` 치환
+- 응답 → 변수: `{"token":"token","userId":"data.id"}`
+- JSON 값 검증: `[{"path":"ok","equals":true}]`
+- 예상 상태 코드 검증, 첫 실패에서 중단, 실행 중 Stop
+- 실제 상태·시간·응답 본문 표시
+- Pino API JSON v1 파일 공유·가져오기
 
-Electron + React + TypeScript + Vite, 공식 MCP TypeScript SDK, Zod, electron-builder를 사용합니다.
+URL/헤더/본문 변수 치환은 **원문 문자열 치환**입니다. JSON 본문에 따옴표 등을 포함한 값을 사용할 때는 적절히 이스케이프해야 합니다. 응답 경로는 `data.id`, `users.0.id` 형식이며 추출 값은 문자열·숫자·불리언이어야 합니다.
 
-- `electron/profiles.ts`: 검증·암호화 설정 저장소
-- `electron/mcp.ts`: MCP 연결·도구 발견·검색·응답 변환
-- `electron/api-scenarios.ts`: API 시나리오 암호화 저장·순차 실행·검증·공유 형식
-- `electron/api-ipc.ts`: 파일 가져오기/내보내기와 실행 IPC
-- `src/api-workspace.tsx`: API 시나리오 편집·실행 결과 UI
-- `electron/main.ts`: 데스크톱과 제한된 IPC, Git 저장소 선택, 맥락 내보내기
-- `src/settings.tsx`: 서비스별 로컬 설정
-- `src/main.tsx`: 이슈·문서·작업 맥락 화면
+공유 파일은 요청 정의·이슈 키만 포함합니다. **로컬 변수와 실행 결과는 공유하지 않습니다.** 직접 입력한 URL·헤더·본문·예상 값은 공유되므로 인증 값은 로컬 변수에 보관하세요. 알려진 로컬/추출 변수의 문자열은 실행 결과에서 가리지만 응답의 모든 민감한 데이터를 자동 판별하는 기능은 아닙니다.
 
-렌더러는 sandbox/context isolation을 사용하며 Node.js에 접근하지 않습니다. MCP 명령은 사용자가 지정하고 연결 테스트 또는 검색 시 실행합니다. 오류에 인증 값이 노출되지 않도록 MCP 서버/프로세스 원문 오류를 UI로 전달하지 않습니다.
+가져오기는 새로운 ID와 빈 로컬 변수로 저장하며 자동 실행하지 않습니다. 동료는 자기 환경의 변수를 입력한 뒤 실행할 수 있습니다. 현재 공유는 파일/Git 방식이며 팀 실시간 동기화나 Postman Collection 호환은 없습니다.
 
-## 검증 및 남은 범위
+제한: 시나리오당 30개 요청, 로컬 시나리오 100개, 요청당 15초, 응답 1 MB. 리디렉션은 자동으로 따라가지 않습니다. GET/HEAD 요청 본문, 쿠키 세션, multipart 업로드, 스크립트 실행, 클라이언트 인증서는 지원하지 않습니다. 실행 취소는 이미 서버에서 처리한 변경을 되돌리지 않습니다.
 
-타입 검사·프로덕션 빌드, 테스트 14개(저장·복원·비밀 값 비노출·삭제, 실제 stdio MCP 검색, localhost HTTP 인증 전달 등), macOS Electron UI 스모크 테스트(암호화 저장·MCP 검색·재시작 복원·삭제)를 통과했습니다. API 데스크톱 테스트에서도 시나리오 작성·실제 순차 요청·암호화 저장·공유 파일·가져오기·재시작 복원을 확인했습니다. 실제 회사 MCP 서버 및 Windows 실행은 별도 검증이 필요합니다. Windows/macOS CI가 포함되어 있습니다.
+## 로컬 보안 저장소
 
-AI 실행·worktree·내장 터미널·GitHub PR 생성·프로젝트 영속화·OAuth는 후속 범위입니다. 현재 프로젝트/문서 선택은 실행 중에만 유지됩니다. 배포 의존성 electron-builder 계열에는 minimatch 관련 중간 심각도 경고 6개가 남아 있습니다.
+- `os.UserConfigDir()/pino-workbench/vault.enc`에 설정·인증 값·시나리오·변수·저장소 경로를 **AES-256-GCM**으로 암호화하여 저장합니다.
+- 키는 macOS Keychain / Windows Credential Manager에 `dev.pino.workbench` 서비스로 저장합니다. 파일 옆에 평문 키를 두지 않습니다.
+- OS 키체인 접근이 실패하면 평문 모드로 전환하지 않습니다. 기존 파일을 보존하고 오류를 보여줍니다.
+- 저장은 잠금·임시 파일·원자적 교체를 사용합니다. 동일 설정 저장소로 앱 두 개를 동시에 실행하지 못하도록 파일 잠금을 둡니다.
+- 서비스/시나리오 삭제는 Pino에 저장한 해당 설정과 비밀 값을 삭제합니다. 외부 서버의 토큰 폐기나 AI CLI 로그아웃을 대신하지 않습니다.
+- 내보낸 Markdown과 공유 JSON은 사용자가 선택한 **평문 파일**입니다.
+- 원격 MCP/API를 실행하면 필요한 데이터는 사용자가 지정한 서버로 전송됩니다. 로컬 앱은 모든 외부 서비스가 오프라인이라는 의미는 아닙니다.
 
-[MCP 공식 클라이언트 문서](https://ts.sdk.modelcontextprotocol.io/client) · [Electron safeStorage](https://www.electronjs.org/docs/latest/api/safe-storage)
+### Electron 버전에서 전환
 
-## License
+웹 기반 구현은 소스와 빌드에서 제거했습니다. 이전 코드는 Git 이력에 남습니다. 기존 Electron `connections.enc` / `api-scenarios.enc`는 자동 변환·삭제하지 않습니다. 인증 설정은 새 앱에서 다시 입력하세요. 기존 **Pino API JSON v1 공유 파일은 가져올 수 있습니다.**
 
-MIT. 각 연결 서비스와 AI 도구의 계정 및 이용 조건은 별도로 적용됩니다.
+## 구조
+
+```text
+cmd/pino/             네이티브 앱 진입점
+internal/ui/          Fyne 위젯, 화면, 작업 상태
+internal/model/       프로필·시나리오 모델, 공유 형식, 검증
+internal/vault/       OS 키체인과 AES-GCM 로컬 저장
+internal/connectors/  공식 Go MCP SDK, Jira/Confluence 변환, Git
+internal/runner/      net/http 순차 요청·검증·취소
+assets/               로고와 한글 폰트, 라이선스
+```
+
+로고는 [assets/icon.png](assets/icon.png)에 있습니다. 앱 아이콘에 적용했으며 자세한 설명과 폰트 출처는 [assets/README.md](assets/README.md)를 참고하세요. 앱은 MIT, 포함한 Noto Sans KR 폰트는 SIL OFL입니다.
+
+네이티브 창 확인용 명령은 사용자 키체인을 건드리지 않는 임시 저장소로 창을 띄우고 PNG를 저장한 뒤 종료합니다.
+
+```sh
+mkdir -p tmp
+go run ./cmd/pino --smoke-output tmp/native.png
+go run ./cmd/pino --smoke-output tmp/api.png --smoke-page api
+```
+
+## 현재 범위
+
+macOS 네이티브 빌드·실행, Go 단위/통합 테스트 및 Fyne 위젯 테스트로 검증합니다. 실제 회사 MCP 계정, OS 키체인 권한 정책, Windows 설치 환경은 별도 확인이 필요합니다. worktree·AI 실행·내장 터미널·diff·GitHub PR 생성·OAuth는 후속 개발 범위입니다.
+
+[GitHub](https://github.com/pinomaker-hoo/pino-workbench) · [Fyne 문서](https://docs.fyne.io/) · [공식 MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)

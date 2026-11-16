@@ -1,0 +1,6 @@
+[Details]
+Icon = "assets/icon.png"
+Name = "Pino Workbench"
+ID = "dev.pino.workbench"
+Version = "0.2.0"
+Build = 4
